@@ -62,23 +62,35 @@ if __name__ == '__main__':
   
 
   pp = preprocess()   
+  temp_path = ''
+  try:
+    cnt = 0
+    for root, dirs, files in os.walk(pp.path):
 
-  for root, dirs, files in os.walk(pp.path):
+      for name in files:
+        temp_path = os.path.join(root, name)
+        if os.path.isfile(temp_path) and temp_path[-4:] != 'json' and temp_path[-2:] != 'py' and temp_path[-2:] != 'sh' and temp_path[-3:] != 'txt' and temp_path[-5:] != 'Store' and temp_path[-3:] != 'pyc':
+          filetype = detector.from_file(temp_path) 
+          #print filetype        
+          table = pp.computeOnlyFingerPrint(temp_path)
+          pp.output.append([filetype, table])
+          cnt+=1
+        if cnt % 100 == 0:
+          print cnt
 
-    for name in files:
-      temp_path = os.path.join(root, name)
-      if os.path.isfile(temp_path) and temp_path[-4:] != 'json' and temp_path[-2:] != 'py' and temp_path[-2:] != 'sh' and temp_path[-3:] != 'txt' and temp_path[-5:] != 'Store' and temp_path[-3:] != 'pyc':
-        filetype = detector.from_file(temp_path) 
-        print filetype        
-        table = pp.computeOnlyFingerPrint(temp_path)
-        pp.output.append([filetype, table])
-        
+      for name in dirs: 
+        temp_path = os.path.join(root, name)   
+        if os.path.isfile(temp_path):                 
+          filetype = detector.from_file(temp_path)         
+          table = pp.computeOnlyFingerPrint(temp_path)
+          pp.output.append([filetype, table])
+          cnt+=1
+        if cnt % 100 == 0:
+          print cnt
 
-    for name in dirs: 
-      temp_path = os.path.join(root, name)   
-      if os.path.isfile(temp_path):                 
-        filetype = detector.from_file(temp_path)         
-        table = pp.computeOnlyFingerPrint(temp_path)
-        pp.output.append([filetype, table])
-
+  except:
+    print 'FILE PATH: ', temp_path
+    print 'NUM FILE: ', cnt
+    np.savetxt('temp_data.csv', np.asarray(pp.output), delimiter= ',')
+    
   np.savetxt('all_data.csv', np.asarray(pp.output), delimiter= ',')

@@ -6,6 +6,7 @@ import preprocessor
 import tika
 from tika import detector
 import sys
+import pandas as pd
 
 class preprocess():
   def __init__(self, beta=1.5):     
@@ -61,7 +62,8 @@ def searchfile(path,postfix):
 if __name__ == '__main__':
   
 
-  pp = preprocess()   
+  pp = preprocess()  
+  pp_nobeta =  preprocess(1)  
   temp_path = ''
   try:
     cnt = 0
@@ -69,28 +71,62 @@ if __name__ == '__main__':
 
       for name in files:
         temp_path = os.path.join(root, name)
-        if os.path.isfile(temp_path) and temp_path[-4:] != 'json' and temp_path[-2:] != 'py' and temp_path[-2:] != 'sh' and temp_path[-3:] != 'txt' and temp_path[-5:] != 'Store' and temp_path[-3:] != 'pyc':
+        if os.path.isfile(temp_path) and temp_path[-4:] != 'json' and temp_path[-2:] != 'py' and temp_path[-2:] != 'sh' and temp_path[-3:] != 'txt' and temp_path[-5:] != 'Store' and temp_path[-3:] != 'pyc' and temp_path[-3:] != 'csv':
           filetype = detector.from_file(temp_path) 
           #print filetype        
           table = pp.computeOnlyFingerPrint(temp_path)
-          pp.output.append([filetype, table])
+          table.insert(0, filetype)
+
+          pp.output.append(table)
+
+          table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
+          table_nobeta.insert(0, filetype)
+          pp_nobeta.output.append(table_nobeta)
+
+          #print pp.output
+          #print 'qq'
           cnt+=1
         if cnt % 100 == 0:
           print cnt
-
+        if cnt>0 and cnt % 10000 == 0:
+          #print pp.output
+          df = pd.DataFrame(pp.output)
+          df.to_csv('temp_data.csv',sep=',', index=False)
+          df = pd.DataFrame(pp_nobeta.output)
+          df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
+          #print 'qq'
       for name in dirs: 
         temp_path = os.path.join(root, name)   
         if os.path.isfile(temp_path):                 
           filetype = detector.from_file(temp_path)         
           table = pp.computeOnlyFingerPrint(temp_path)
-          pp.output.append([filetype, table])
+          table.insert(0, filetype)
+          pp.output.append(table)
+
+          table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
+          table_nobeta.insert(0, filetype)
+          pp_nobeta.output.append(table_nobeta)
           cnt+=1
+          #print 'qq'
         if cnt % 100 == 0:
           print cnt
+        if cnt>0 and cnt % 10000 == 0:
+          #np.savetxt('temp_data.csv', np.asarray(pp.output), delimiter= ',', fmt = '%s')
+          df = pd.DataFrame(pp.output)
+          df.to_csv('temp_data.csv',sep=',', index=False)
+          df = pd.DataFrame(pp_nobeta.output)
+          df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
 
   except:
     print 'FILE PATH: ', temp_path
     print 'NUM FILE: ', cnt
-    np.savetxt('temp_data.csv', np.asarray(pp.output), delimiter= ',')
-    
-  np.savetxt('all_data.csv', np.asarray(pp.output), delimiter= ',')
+    df = pd.DataFrame(pp.output)
+    df.to_csv('temp_data.csv',sep=',', index=False)
+    df = pd.DataFrame(pp_nobeta.output)
+    df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
+
+  df = pd.DataFrame(pp.output)
+  df.to_csv('all_data.csv',sep=',', index=False) 
+  df = pd.DataFrame(pp_nobeta.output)
+  df.to_csv('all_nobeta_data.csv',sep=',', index=False)
+  #np.savetxt('all_data.csv', np.asarray(pp.output), delimiter= ',')

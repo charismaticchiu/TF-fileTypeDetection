@@ -1,4 +1,4 @@
-#!/illumina/thirdparty/anaconda2/bin python
+#!/bin python
 import tensorflow as tf
 import random
 import numpy as np

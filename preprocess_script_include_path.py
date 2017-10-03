@@ -4,6 +4,7 @@ Last Modified: 10/01/2017
 Purpose: TO get filetype detected by Tika, file path and byte frequencies of TREC-DD Polar Dataset
 Acknowledgement: convertToByteTable, compandBFD, and computeOnlyFingerPrint functions are 
 modified from Rahul (https://github.com/USCDataScience/NN-fileTypeDetection)
+
 """
 
 import numpy as np
@@ -84,11 +85,12 @@ if __name__ == '__main__':
           #print filetype        
           table = pp.computeOnlyFingerPrint(temp_path)
           table.insert(0, filetype)
-
+          table.insert(0, temp_path) # include file path to the dataset here
           pp.output.append(table)
 
           table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
           table_nobeta.insert(0, filetype)
+          table_nobeta.insert(0, temp_path) # include file path to the dataset here
           pp_nobeta.output.append(table_nobeta)
 
           #print pp.output
@@ -109,10 +111,12 @@ if __name__ == '__main__':
           filetype = detector.from_file(temp_path)         
           table = pp.computeOnlyFingerPrint(temp_path)
           table.insert(0, filetype)
+          table.insert(0, temp_path) # include file path to the dataset here
           pp.output.append(table)
 
           table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
           table_nobeta.insert(0, filetype)
+          table_nobeta.insert(0, temp_path) # include file path to the dataset here
           pp_nobeta.output.append(table_nobeta)
           cnt+=1
           #print 'qq'

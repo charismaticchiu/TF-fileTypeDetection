@@ -16,6 +16,7 @@ from tika import detector
 import sys
 import pandas as pd
 from cbor2 import load,loads
+import traceback
 
 class preprocess():
   def __init__(self, beta=1.5):     
@@ -32,19 +33,34 @@ class preprocess():
     output: byte table consisting of frequency distribution
     """
     try:
-      table = [0] * 256
+      table1 = [0] * 256 
+      table2 = [0] * 256
+      table3 = [0] * 256
       #print filename
       #with open(filename, 'rb') as fp:
         
       data = open(filename, 'rb')
       #print 'ssssss open ok'
+      pt1 = data.read(256)
+      for c in pt1:
+        table1[ord(c)] += 1
+      
+      pt2 = data.read()
+      pt2, pt3 = pt2[:-256], pt2[-256:]
+      for c in pt2:
+        table2[ord(c)] += 1
+      for c in pt3:
+        table3[ord(c)] += 1
+      '''
       buff = data.read(2 ** 20)
       while buff:
         for c in buff:
-          table[ord(c)] += 1
+          table2[ord(c)] += 1
         buff = data.read(2 ** 20)
+      '''
       data.close()
-      return table
+      
+      return table1, table2, table3
     except:
       print 'Usage: %s <filename>' % os.path.basename(sys.argv[0])
       #self.logger('Usage: %s <filename>' % os.path.basename(sys.argv[0]))
@@ -59,9 +75,19 @@ class preprocess():
     table = [(x ** (1. / self.beta)) for x in table]
     return table
   def computeOnlyFingerPrint(self, filename):
-    table  = self.convertToByteTable(filename)
-    table = self.compandBFD(table)
-    return table
+    table1, table2, table3  = self.convertToByteTable(filename)
+    
+    if max(table1) > 0:
+      table1 = self.compandBFD(table1)
+    else:
+      print 'weird--table1 are 0s'
+    
+    if max(table2) > 0:
+      table2 = self.compandBFD(table2)
+    
+    if max(table3) > 0:
+      table3 = self.compandBFD(table3)
+    return table1 + table2 + table3
 
 
 def searchfile(path,postfix):
@@ -104,9 +130,9 @@ if __name__ == '__main__':
         if cnt>0 and cnt % 10000 == 0:
           #print pp.output
           df = pd.DataFrame(pp.output)
-          df.to_csv('temp_data.csv',sep=',', index=False)
+          df.to_csv('temp_3p_data.csv',sep=',', index=False)
           df = pd.DataFrame(pp_nobeta.output)
-          df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
+          df.to_csv('temp_3p_nobeta_data.csv',sep=',', index=False)
           #print 'qq'
       for name in dirs: 
         temp_path = os.path.join(root, name)   
@@ -126,20 +152,22 @@ if __name__ == '__main__':
         if cnt>0 and cnt % 10000 == 0:
           #np.savetxt('temp_data.csv', np.asarray(pp.output), delimiter= ',', fmt = '%s')
           df = pd.DataFrame(pp.output)
-          df.to_csv('temp_data.csv',sep=',', index=False)
+          df.to_csv('temp_3p_data.csv',sep=',', index=False)
           df = pd.DataFrame(pp_nobeta.output)
-          df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
-  
-  except:
+          df.to_csv('temp_3p_nobeta_data.csv',sep=',', index=False)
+   
+  except Exception as e:
+    
     print 'exception on FILE PATH: ', temp_path
     print 'NUM FILE: ', cnt
     df = pd.DataFrame(pp.output)
-    df.to_csv('temp_data.csv',sep=',', index=False)
+    df.to_csv('temp_3p_data.csv',sep=',', index=False)
     df = pd.DataFrame(pp_nobeta.output)
-    df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
- 
+    df.to_csv('temp_3p_nobeta_data.csv',sep=',', index=False)
+    print traceback.format_exc()
+
   df = pd.DataFrame(pp.output)
-  df.to_csv('all_data.csv',sep=',', index=False) 
+  df.to_csv('all_3p_data.csv',sep=',', index=False) 
   df = pd.DataFrame(pp_nobeta.output)
-  df.to_csv('all_nobeta_data.csv',sep=',', index=False)
+  df.to_csv('all_3p_nobeta_data.csv',sep=',', index=False)
   #np.savetxt('all_data.csv', np.asarray(pp.output), delimiter= ',')

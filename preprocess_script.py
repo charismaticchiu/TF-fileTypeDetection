@@ -73,7 +73,7 @@ def searchfile(path,postfix):
         return os.path.join(root,name) 
 if __name__ == '__main__':
   
-
+  chunk=1
   pp = preprocess()  
   pp_nobeta =  preprocess(1)  
   temp_path = ''
@@ -81,35 +81,43 @@ if __name__ == '__main__':
   #if True: 
     cnt = 0
     for root, dirs, files in os.walk(pp.path):
-
       for name in files:
         temp_path = os.path.join(root, name)
+
         if os.path.isfile(temp_path) and os.path.getsize(temp_path) > 0: #and temp_path[-4:] != 'json' and temp_path[-2:] != 'py' and temp_path[-2:] != 'sh' and temp_path[-3:] != 'txt' and temp_path[-5:] != 'Store' and temp_path[-3:] != 'pyc' and temp_path[-3:] != 'csv':
           filetype = detector.from_file(temp_path) 
           #print filetype        
           table = pp.computeOnlyFingerPrint(temp_path)
           table.insert(0, filetype)
-
           pp.output.append(table)
-
+          #process no beta
           table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
           table_nobeta.insert(0, filetype)
           pp_nobeta.output.append(table_nobeta)
-
-          #print pp.output
-          #print 'qq'
+          #counter
           cnt+=1
+
         if cnt % 100 == 0:
           print cnt
+
         if cnt>0 and cnt % 10000 == 0:
-          #print pp.output
           df = pd.DataFrame(pp.output)
           df.to_csv('temp_data.csv',sep=',', index=False)
           df = pd.DataFrame(pp_nobeta.output)
           df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
-          #print 'qq'
+          del df
+        if cnt>0 and cnt % 1000000 == 0: #save chunk after prcess 1 million valid files
+          df = pd.DataFrame(pp.output)
+          df.to_csv('chunk_data'+str(chunk)+'.csv',sep=',', index=False)
+          df = pd.DataFrame(pp_nobeta.output)
+          df.to_csv('chunk_nobeta_data'+str(chunk)+'.csv',sep=',', index=False)
+          pp.output = []
+          pp_nobeta.output = []
+          del df 
+          chunk += 1
       for name in dirs: 
-        temp_path = os.path.join(root, name)   
+        temp_path = os.path.join(root, name) 
+
         if os.path.isfile(temp_path) and os.path.getsize(temp_path) > 0:                 
           filetype = detector.from_file(temp_path)         
           table = pp.computeOnlyFingerPrint(temp_path)
@@ -120,16 +128,26 @@ if __name__ == '__main__':
           table_nobeta.insert(0, filetype)
           pp_nobeta.output.append(table_nobeta)
           cnt+=1
-          #print 'qq'
+          
         if cnt % 100 == 0:
           print cnt
+
         if cnt>0 and cnt % 10000 == 0:
           #np.savetxt('temp_data.csv', np.asarray(pp.output), delimiter= ',', fmt = '%s')
           df = pd.DataFrame(pp.output)
           df.to_csv('temp_data.csv',sep=',', index=False)
           df = pd.DataFrame(pp_nobeta.output)
-          df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
-  
+          df.to_csv('temp_nobeta_data.csv',sep=',', index=False) 
+          del df 
+        if cnt>0 and cnt % 1000000 == 0: #save chunk after prcess 1 million valid files
+          df = pd.DataFrame(pp.output)
+          df.to_csv('chunk_data'+str(chunk)+'.csv',sep=',', index=False)
+          df = pd.DataFrame(pp_nobeta.output)
+          df.to_csv('chunk_nobeta_data'+str(chunk)+'.csv',sep=',', index=False)
+          pp.output = []
+          pp_nobeta.output = []
+          del df 
+          chunk += 1
   except:
     print 'exception on FILE PATH: ', temp_path
     print 'NUM FILE: ', cnt
@@ -139,7 +157,7 @@ if __name__ == '__main__':
     df.to_csv('temp_nobeta_data.csv',sep=',', index=False)
  
   df = pd.DataFrame(pp.output)
-  df.to_csv('all_data.csv',sep=',', index=False) 
+  df.to_csv('chunk_data'+str(chunk)+'.csv',sep=',', index=False)
   df = pd.DataFrame(pp_nobeta.output)
-  df.to_csv('all_nobeta_data.csv',sep=',', index=False)
+  df.to_csv('chunk_nobeta_data'+str(chunk)+'.csv',sep=',', index=False)
   #np.savetxt('all_data.csv', np.asarray(pp.output), delimiter= ',')

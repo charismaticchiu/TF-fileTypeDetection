@@ -8,98 +8,12 @@ import tensorflow as tf
 import pandas as pd
 import os
 import pickle
-fileshape = 0
+from utility import *
+
 
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-def prepare_file(filename):
-  """Group data by filetype.
-  ft_to_idx: filetype to index dict, e.g. ft_to_idx['html'] = 1
-  nclasses: number of filetypes, should be 93
-  grp: byte frequencies of each group, e.g., grp['html'] = a Dataframe that has 
-       a list of byte frequencies of file belonging to that filetype
-  """
-  #filename = 'temp_data.csv'
-  data = pd.read_csv(filename)
-  fts = data['0'].unique()   
-  gdata = data.groupby('0')  
-  grp = {}
-  for ft in fts:
-    grp[ft] = gdata.get_group(ft).values  
-  #html_grp = gdata.get_group(ft[0])  
-  #plain_grp = gdata.get_group(ft[2])  
-  #cnt_stats = gdata['1'].count()
-  #cnt_stats.sort_values(inplace=True)
-  
-  # create filetype to index dictionary
-  ft_to_idx = {}
-  for idx, ft in enumerate(fts):
-    ft_to_idx[ft] = idx
-
-  nclasses = len(fts)
-  #assert nclasses == 93
-  print ('n classes: ',nclasses)
-
-  return ft_to_idx, nclasses, grp
-
-
-def subsampled_batch(ft_to_idx, group_data, class_size=30):
-  """subsample each group to have 'class_size' number of samples
-  and then convert their text labels to index labels.
-  x: batch of bytefrequencies, with balanced sample size for each filetype
-  idx_labels: index of the sample filetype
-
-  the size of the batch will be class_size * 93
-  """
-  
-  fts = group_data.keys()
-  subsampled = np.zeros( (1, group_data['application/pdf'].shape[1]) )
-  
-  for ft in fts:
-    #tmp = group_data[ft].sample(class_size, replace = True)
-    tmp = group_data[ft][np.random.choice(group_data[ft].shape[0],class_size),:]
-    #print tmp.shape
-    subsampled = np.vstack((subsampled, tmp))
-    #print subsampled.shape
-  subsampled = np.delete(subsampled, 0, 0)
-  text_labels = subsampled[:,0]
-  idx_labels = np.array(map(lambda x: ft_to_idx[x], text_labels))
-  #idx_labels = np.reshape(idx_labels,(1,-1))
-  batch_x = subsampled[:,1:]
-  assert idx_labels.shape[0] == batch_x.shape[0]
-  return batch_x, idx_labels
-
-def random_batch(data, batch_size, ft_to_idx, nclasses, onehot=False):
-  """Get random batch of data.
-  Can set labels to be one-hot or not
-  """
-  # prepare random samples
-  arr = np.arange(data.shape[0])
-  np.random.shuffle(arr)
-  raw = data.values
-  
-  # create training batch
-
-  for i in range(raw.shape[0]/batch_size):
-    batch = raw[i*batch_size : (i+1)*batch_size]
-
-  batch_x = batch[:,1:]
-  #TODO: add subsampling
-  labels = batch[:,0]
-  labels = np.array(map(lambda x: ft_to_idx[x], labels))
-  #labels = np.reshape(labels,(1,-1))
-
-  if onehot == True:
-    #convert to one-hot
-    #may or may not use
-    one_hot =  np.zeros((batch_size, nclasses))
-    one_hot[np.arange(batch_size), labels] = 1.
-    
-    
-    labels = one_hot
-
-  return batch_x, labels
 
 def mlp_model_fn(features, labels, mode, params):
   """Model function for MLP."""
@@ -200,30 +114,28 @@ def main(unused_argv):
     #pickle.dump(group_data, f)
     np.save("group_data", group_data)
 
-  
+  #gen train set
+  train, dev = train_dev_split(group_data, proportion = 0.8, thre=10)
+  train_data, train_labels= gen_feed(train, ft_to_idx, upper_limit=5000)
+  eval_data, eval_labels= gen_feed(dev, ft_to_idx, upper_limit=5000)
+  train_data = train_data.astype(np.float32) 
+  eval_data = eval_data.astype(np.float32) 
+  '''
   train_data, train_labels = np.zeros((1, group_data['application/pdf'].shape[1]-1)), np.zeros((1,))
-
-  for i in range(2):
-    tmp_data, tmp_labels = subsampled_batch(ft_to_idx, group_data, class_size=30)
+  for i in range(100):
+    tmp_data, tmp_labels = subsampled_batch(ft_to_idx, group_data, class_size=100)
     train_data = np.vstack((train_data, tmp_data))
     train_labels = np.hstack((train_labels, tmp_labels))
+  train_data = np.delete(train_data,0,0)
+  train_labels = np.delete(train_labels,0,0)
+  train_data = train_data.astype(np.float32)
+  '''
+  #gen dev set
 
-  
-  np.delete(train_data,0,0)
-  np.delete(train_labels,0,0)
-  train_data = train_data.astype(float)
-  #train_data = tf.cast(train_data.astype(float), tf.float64)
-  #train_labels = tf.cast(train_labels, tf.int64)
-  #print ('train type:', train_data.dtype)
-  #print (train_labels.dtype)
-  #print ('train shape:', train_data.shape)
-  
-
-  eval_data, eval_labels = subsampled_batch(ft_to_idx, group_data, class_size=100)
-
-  eval_data = eval_data.astype(float) #tf.cast(eval_data.astype(float), tf.float64)
-  #eval_labels = tf.cast(eval_labels, tf.int64)
-
+  '''eval_data, eval_labels = subsampled_batch(ft_to_idx, group_data, class_size=100)
+  eval_data = eval_data.astype(np.float32) 
+  '''
+  # set config
   config = {}
   config['nclasses'] = int(nclasses)
   config['model_dir'] = unused_argv[2]
@@ -251,7 +163,7 @@ def main(unused_argv):
   
   mlp_classifier.train(
       input_fn=train_input_fn,
-      steps=20000,
+      steps=60000,
       hooks=[logging_hook])
   
   # Evaluate the model and print results

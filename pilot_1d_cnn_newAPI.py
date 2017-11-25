@@ -6,89 +6,23 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 import pandas as pd
-
-
+import os
+import pickle
+from utilitiy import *
+fileshape = 0
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-def prepare_file(filename):
-
-  filename = 'temp_data.csv'
-  data = pd.read_csv(filename)
-  fts = data['0'].unique()   
-  gdata = data.groupby('0')  
-  grp = {}
-  for ft in fts:
-    grp[ft] = gdata.get_group(ft)  
-  #html_grp = gdata.get_group(ft[0])  
-  #plain_grp = gdata.get_group(ft[2])  
-  cnt_stats = gdata['1'].count()
-  cnt_stats.sort_values(inplace=True)
-  
-  # create filetype to index dictionary
-  ft_to_idx = {}
-  for idx, ft in enumerate(fts):
-    ft_to_idx[ft] = idx
-
-  nclasses = len(fts)
-
-  return ft_to_idx, nclasses, grp
-
-
-def subsampled_batch(ft_to_idx, group_data, class_size=100):
-  
-  
-  fts = group_data.keys()
-  subsampled = []
-  
-  for ft in fts:
-    tmp = group_data[ft].sample(class_size, replace = True)
-    subsampled = np.vstack((subsamlped, tmp.values))
-  
-  text_labels = subsamlped[:,0]
-  idx_labels = map(lambda x: ft_to_idx[x], text_labels)
-  x = subsamlped[:,1:]
-
-  return x, idx_labels
-
-def random_batch(data, batch_size, ft_to_idx, nclasses, onehot=False):
-  # prepare random samples
-  arr = np.arange(data.shape[0])
-  np.random.shuffle(arr)
-  raw = data.values
-  
-  # create training batch
-
-  for i in range(raw.shape[0]/batch_size):
-    batch = raw[i*batch_size : (i+1)*batch_size]
-
-  batch_x = batch[:,1:]
-  #TODO: add subsampling
-  labels = batch[:,0]
-  labels = map(lambda x: ft_to_idx[x], labels)
-  if onehot == True:
-    #convert to one-hot
-    #may or may not use
-    one_hot =  np.zeros((batch_size, nclasses))
-    one_hot[np.arange(batch_size), labels] = 1.
-    
-    
-    labels = one_hot
-
-  return batch_x, labels
-
-def mlp_model_fn(features, labels, mode, params):
+def cnn_model_fn(features, labels, mode, params):
   """Model function for MLP."""
   
-  #TODO: need works on this
-  config = params['config']
-
+  config = params
 
   # Input Layer
   # Reshape X to 4-D tensor: [batch_size, width, height, channels]
   
   input_layer = tf.reshape(features["x"], [-1, features["x"].shape[1], 1, 1])
-
+  print(input_layer.shape)
   # Convolutional Layer #1
   # Computes 32 features using a 5x5 filter with ReLU activation.
   # Padding is added to preserve width and height.
@@ -97,16 +31,16 @@ def mlp_model_fn(features, labels, mode, params):
   conv1 = tf.layers.conv2d(
       inputs=input_layer,
       filters=32,
-      kernel_size=[5, 1],
+      kernel_size=[1, 5],
       padding="same",
       activation=tf.nn.relu)
-
+  print(conv1.shape)
   # Pooling Layer #1
   # First max pooling layer with a 2x2 filter and stride of 2
   # Input Tensor Shape: [batch_size, 252, 1, 32]
   # Output Tensor Shape: [batch_size, 126, 1, 32]
-  pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 1], strides=2)
-
+  pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 1], strides=[2,1])
+  print(pool1.shape)
   # Convolutional Layer #2
   # Computes 64 features using a 5x5 filter.
   # Padding is added to preserve width and height.
@@ -115,20 +49,20 @@ def mlp_model_fn(features, labels, mode, params):
   conv2 = tf.layers.conv2d(
       inputs=pool1,
       filters=64,
-      kernel_size=[5, 1],
+      kernel_size=[1, 5],
       padding="same",
       activation=tf.nn.relu)
-
+  print(conv2.shape)
   # Pooling Layer #2
   # Second max pooling layer with a 2x2 filter and stride of 2
   # Input Tensor Shape: [batch_size, 122, 1, 64]
   # Output Tensor Shape: [batch_size, 61, 1, 64]
-  pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 1], strides=2)
-
+  pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 1], strides=[2,1])
+  print(pool2.shape)
   # Flatten tensor into a batch of vectors
   # Input Tensor Shape: [batch_size, 61, 1, 64]
   # Output Tensor Shape: [batch_size, 61 * 1* 64]]
-  pool2_flat = tf.reshape(pool2, [-1, 61 * 1 * 64])
+  pool2_flat = tf.reshape(pool2, [-1, 64 * 1 * 64])
 
   # Dense Layer
   # Densely connected layer with 1024 neurons
@@ -143,7 +77,7 @@ def mlp_model_fn(features, labels, mode, params):
   # Logits layer
   # Input Tensor Shape: [batch_size, 1024]
   # Output Tensor Shape: [batch_size, 93]
-  logits = tf.layers.dense(inputs=dropout, units=93)
+  logits = tf.layers.dense(inputs=dropout, units=config['nclasses'])
 
   predictions = {
       # Generate predictions (for PREDICT and EVAL mode)
@@ -156,7 +90,7 @@ def mlp_model_fn(features, labels, mode, params):
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
   # Calculate Loss (for both TRAIN and EVAL modes)
-  onehot_labels = tf.one_hot(indices=tf.cast(labels, tf.int32), depth=93)
+  onehot_labels = tf.one_hot(indices=tf.cast(labels, tf.int32), depth=config['nclasses'])
   loss = tf.losses.softmax_cross_entropy(
       onehot_labels=onehot_labels, logits=logits)
 
@@ -183,24 +117,64 @@ def my_input_fn(data_set):
 
 def main(unused_argv):
   # Load training and eval data
-  #TODO: figure out how unused_argv is for
+  #unused_argv: a list of strings
   print ('unused_argv', unused_argv)
+  filename = unused_argv[1]
 
-  ft_to_idx, nclasses, group_data = prepare_file(filename)
-  train_data, train_labels = [], []
-  for i in range(10):
 
-    tmp_data, tmp_labels = subsampled_batch(ft_to_idx, group_data, class_size=100)
+  if os.path.isfile('ft_to_idx.npy') and os.path.isfile('nclasses.npy') and os.path.isfile('group_data.npy'):
+    ft_to_idx = np.load('ft_to_idx.npy')
+    ft_to_idx = ft_to_idx.item()
+    nclasses = np.load('nclasses.npy')
+    #f = open('group_data.pkl','r')
+    #group_data = pickle.load('group_data.pkl')
+    group_data = np.load('group_data.npy')
+    group_data = group_data.item()
+
+  else:
+    ft_to_idx, nclasses, group_data = prepare_file(filename)
+    np.save("ft_to_idx", ft_to_idx)
+    np.save("nclasses", nclasses)
+    #f = open('group_data.pkl','w')
+    #pickle.dump(group_data, f)
+    np.save("group_data", group_data)
+
+  
+  train_data, train_labels = np.zeros((1, group_data['application/pdf'].shape[1]-1)), np.zeros((1,))
+
+  for i in range(1):
+    tmp_data, tmp_labels = subsampled_batch(ft_to_idx, group_data, class_size=10)
     train_data = np.vstack((train_data, tmp_data))
-    train_labels = np.vstack((train_labels, tmp_labels))
+    train_labels = np.hstack((train_labels, tmp_labels))
 
+  
+  np.delete(train_data,0,0)
+  np.delete(train_labels,0,0)
+  train_data = train_data.astype(np.float32)
+  #train_data = tf.cast(train_data, tf.float32)
+  #train_labels = tf.cast(train_labels, tf.int64)
+  #print ('train type:', train_data.dtype)
+  print (train_labels.dtype)
+  #print ('train shape:', train_data.shape)
+  
 
-  eval_data, eval_labels = subsampled_batch(ft_to_idx, group_data, class_size=100)
-  #TODO: add a config with dict
+  eval_data, eval_labels = subsampled_batch(ft_to_idx, group_data, class_size=10)
+
+  eval_data = eval_data.astype(np.float32) 
+  #eval_data = tf.cast(eval_data, tf.float32)
+  #eval_labels = tf.cast(eval_labels, tf.int64)
+
+  config = {}
+  config['nclasses'] = int(nclasses)
+  config['model_dir'] = unused_argv[2]
+  config['n_hidden1'] = int(unused_argv[3])
+  config['n_hidden2'] = int(unused_argv[4])
+  config['n_hidden3'] = int(unused_argv[5])
+  
 
   # Create the Estimator
-  mlp_classifier = tf.estimator.Estimator(
-    model_fn=mlp_model_fn, model_dir=config.path, params=config.dict)
+  cnn_classifier = tf.estimator.Estimator(
+    model_fn=cnn_model_fn, model_dir=config['model_dir'], params=config)
 
   # Set up logging for predictions
   tensors_to_log = {"probabilities": "softmax_tensor"}
@@ -215,7 +189,7 @@ def main(unused_argv):
       num_epochs=None,
       shuffle=True)
   
-  mlp_classifier.train(
+  cnn_classifier.train(
       input_fn=train_input_fn,
       steps=20000,
       hooks=[logging_hook])
@@ -227,7 +201,7 @@ def main(unused_argv):
     num_epochs=1,
     shuffle=False)
   
-  eval_results = mlp_classifier.evaluate(input_fn=eval_input_fn)
+  eval_results = cnn_classifier.evaluate(input_fn=eval_input_fn)
   print(eval_results)
 
 

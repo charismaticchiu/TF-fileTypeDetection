@@ -82,16 +82,19 @@ if __name__ == '__main__':
         temp_path = os.path.join(root, name)
         if os.path.isfile(temp_path) and temp_path[-4:] != 'json' and temp_path[-2:] != 'py' and temp_path[-2:] != 'sh' and temp_path[-3:] != 'txt' and temp_path[-5:] != 'Store' and temp_path[-3:] != 'pyc' and temp_path[-3:] != 'csv':
           filetype = detector.from_file(temp_path) 
-          #print filetype        
-          table = pp.computeOnlyFingerPrint(temp_path)
-          table.insert(0, filetype)
-          table.insert(0, temp_path) # include file path to the dataset here
-          pp.output.append(table)
+          #print filetype     
 
-          table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
-          table_nobeta.insert(0, filetype)
-          table_nobeta.insert(0, temp_path) # include file path to the dataset here
-          pp_nobeta.output.append(table_nobeta)
+          #table = pp.computeOnlyFingerPrint(temp_path)
+          #table.insert(0, filetype)
+          #table.insert(0, temp_path) # include file path to the dataset here
+          
+
+          pp.output.append([filetype,temp_path])
+
+          #table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
+          #table_nobeta.insert(0, filetype)
+          #table_nobeta.insert(0, temp_path) # include file path to the dataset here
+          #pp_nobeta.output.append(table_nobeta)
 
           #print pp.output
           #print 'qq'
@@ -109,15 +112,15 @@ if __name__ == '__main__':
         temp_path = os.path.join(root, name)   
         if os.path.isfile(temp_path):                 
           filetype = detector.from_file(temp_path)         
-          table = pp.computeOnlyFingerPrint(temp_path)
-          table.insert(0, filetype)
-          table.insert(0, temp_path) # include file path to the dataset here
-          pp.output.append(table)
-
-          table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
-          table_nobeta.insert(0, filetype)
-          table_nobeta.insert(0, temp_path) # include file path to the dataset here
-          pp_nobeta.output.append(table_nobeta)
+          #table = pp.computeOnlyFingerPrint(temp_path)
+          #table.insert(0, filetype)
+          #table.insert(0, temp_path) # include file path to the dataset here
+          #pp.output.append(table)
+          pp.output.append([filetype,temp_path])
+          #table_nobeta = pp_nobeta.computeOnlyFingerPrint(temp_path)
+          #table_nobeta.insert(0, filetype)
+          #table_nobeta.insert(0, temp_path) # include file path to the dataset here
+          #pp_nobeta.output.append(table_nobeta)
           cnt+=1
           #print 'qq'
         if cnt % 100 == 0:

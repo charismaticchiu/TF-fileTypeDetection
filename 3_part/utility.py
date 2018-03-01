@@ -9,21 +9,24 @@ import pandas as pd
 import os
 import pickle
 
-def train_dev_split(group_data, proportion = 0.8, thre=10):
-  """split all data into train and dev set"""
+def train_dev_test_split(group_data, proportion = [0.6, 0.2], thre=10):
+  """split all data into train, dev and test set"""
   train_dict = {}
   dev_dict = {}
+  test_dict = {}
   for k,v in group_data.iteritems():
     l = len(v)
     if l > thre:
       # prepare random samples
       arr = np.arange(l)
       np.random.shuffle(arr)
-      train = v[arr[:int(proportion*l)]]
-      dev = v[arr[int(proportion*l):]]
+      train = v[arr[:int(proportion[0]*l)]]
+      dev = v[arr[int(proportion[0]*l):int((proportion[0]+proportion[1])*l)]]
+      test = v[arr[int((proportion[0]+proportion[1])*l):]]
       train_dict[k] = train
       dev_dict[k] = dev
-  return train_dict, dev_dict
+      test_dict[k] = test
+  return train_dict, dev_dict, test_dict
 
 def gen_synthetic(type, bf, num, sigma=10e-5):
   """generate synthetic data by adding small variance Gaussain noise
@@ -67,14 +70,16 @@ def prepare_file(filename):
   
   # create filetype to index dictionary
   ft_to_idx = {}
+  idx_to_ft = {}
   for idx, ft in enumerate(fts):
     ft_to_idx[ft] = idx
+    idx_to_ft[idx] = ft
 
   nclasses = len(fts)
   #assert nclasses == 93
   print ('n classes: ',nclasses)
 
-  return ft_to_idx, nclasses, grp
+  return ft_to_idx, idx_to_ft, nclasses, grp
 
 
 
